@@ -359,31 +359,32 @@ void loop()
   delay(5000);
 
 tft.fillScreen(TFT_BLACK);            // Clear screen
-tft.drawString("Loading", 20, 25, 1);
-tft.drawString("the sample", 20, 75, 1);
-tft.drawString("into the", 20, 125, 1);
-tft.drawString("cassette", 20, 175, 1);
+tft.drawString("Loading", 10, 10, 1);
+tft.drawString("the sample", 10, 60, 1);
+tft.drawString("into the", 10, 110, 1);
+tft.drawString("cassette", 10, 160, 1);
 delay(5000);
 
 tft.fillScreen(TFT_BLACK);            // Clear screen
-tft.drawString("The sample", 20, 25, 1);
-tft.drawString("is mixed", 20, 75, 1);
-tft.drawString("with pre-", 20, 125, 1);
-tft.drawString("loaded dye", 20, 175, 1);
+tft.drawString("The sample", 0, 5, 1);
+tft.drawString("dissolves", 0, 50, 1);
+tft.drawString("AO and DAPI", 0, 95, 1);
+tft.drawString("dyes via", 0, 140, 1);
+tft.drawString("mixing", 0, 185, 1);
 delay(5000);
 
 tft.fillScreen(TFT_BLACK);            // Clear screen
-tft.drawString("Cells will", 20, 25, 1);
-tft.drawString("evenly", 20, 75, 1);
-tft.drawString("be labelled", 20, 125, 1);
-tft.drawString("live or dead", 20, 175, 1);
+tft.drawString("Cells will", 10, 10, 1);
+tft.drawString("quickly", 10, 60, 1);
+tft.drawString("be stained", 10, 110, 1);
+tft.drawString("live or dead", 10, 160, 1);
 delay(5000);
 
 tft.fillScreen(TFT_BLACK);            // Clear screen
-tft.drawString("The sample", 10, 5, 1);
-tft.drawString("will now be", 10, 50, 1);
-tft.drawString("measured in", 10, 95, 1);
-tft.drawString("the count-", 10, 140, 1);
+tft.drawString("The mixture", 10, 5, 1);
+tft.drawString("is illuminated", 10, 50, 1);
+tft.drawString("in the", 10, 95, 1);
+tft.drawString("counting", 10, 140, 1);
 tft.drawString("chamber", 10, 185, 1);
 delay(5000);
 
@@ -394,13 +395,13 @@ tft.fillScreen(TFT_BLACK);            // Clear screen
 tft.drawString("The excited", 10, 5, 1);
 tft.drawString("fluorophores", 10, 50, 1);
 tft.drawString("emit colors", 10, 95, 1);
-tft.setTextColor(TFT_RED, TFT_BLACK);
-int16_t bredde = tft.drawString("RED ", 10, 140, 1);
+tft.setTextColor(TFT_BLUE, TFT_BLACK);
+int16_t bredde = tft.drawString("BLUE ", 10, 140, 1);
 tft.setTextColor(TFT_WHITE, TFT_BLACK);
 tft.drawString("and", 10+bredde, 140, 1);
-tft.setTextColor(TFT_GREEN, TFT_BLACK);
-tft.drawString("GREEN", 10, 185, 1);
-tft.setTextColor(TFT_WHITE, TFT_BLACK);
+tft.setTextColor(TFT_RED, TFT_BLACK);
+tft.drawString("RED", 10, 185, 1);
+tft.setTextColor(TFT_WHITE, TFT_BLACK); // back to white text
 delay(5000);
 
 drawJpeg("/AOandDAPI2.jpg", 0 , 0);     // 240 x 320 image
@@ -426,13 +427,13 @@ tft.drawString("is saved", 20, 185, 1);
 delay(5000);
 
   drawJpeg("/DAPI2.jpg", 0 , 0);     // 240 x 320 image
-  delay(2000);
+  delay(5000);
   drawJpeg("/AO2.jpg", 0 , 0);     // 240 x 320 image
-  delay(2000);
+  delay(5000);
 
 
-  drawJpeg("/Nuclei.jpg", 0 , 0);     // 240 x 320 image
-  delay(2000);
+  //drawJpeg("/Nuclei.jpg", 0 , 0);     // 240 x 320 image
+  //delay(2000);
 
 }
 //====================================================================================
