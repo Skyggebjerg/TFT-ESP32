@@ -428,20 +428,14 @@ delay(100);
 ledcWrite(PWM1_Ch, 255); //Turn ON background light
 delay(100);
 ledcWrite(PWM1_Ch, 0); //Turn OFF background light
+delay(500);
 
-//tft.fillScreen(TFT_BLACK); */
-
-//ledcWrite(PWM1_Ch, 0);
 drawJpeg("/Nucleocolor.jpg", 0 , 0);     // 240 x 320 image
 delay(50);
   for (int i = 0; i <= 255; i++) {
     ledcWrite(PWM1_Ch, i);
     delay(20);
   }
-
-
-
-//digitalWrite(LITE, HIGH); //Turn ON background light
 
 delay(1000);
 
