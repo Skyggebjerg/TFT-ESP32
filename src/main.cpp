@@ -5,6 +5,9 @@
 // Call up the SPIFFS FLASH filing system this is part of the ESP Core
 #define FS_NO_GLOBALS
 #include <FS.h>
+//#include <Arduino_GFX_Library.h>
+#include "Free_Fonts.h" // Include the header file attached to this sketch
+//#include "Orbitron_50_Bold.h"
 
 #ifdef ESP32
   #include "SPIFFS.h" // ESP32 only
@@ -346,6 +349,14 @@ void loop()
   tft.setRotation(3);  // portrait
   tft.fillScreen(TFT_WHITE);
 
+    // Set text colour to orange with black background
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  
+  tft.fillScreen(TFT_BLACK);            // Clear screen
+  tft.setFreeFont(&Orbitron_Bold_45);                 // Select the font
+  tft.drawString("Hejsa", 20, 50, 1);// Print the string name of the font
+//display.setCursor(20, 50);
+delay(2000);
   drawJpeg("/DAPI2.jpg", 0 , 0);     // 240 x 320 image
   //drawJpeg("/Baboon40.jpg", 0, 0); // 320 x 480 image
   delay(2000);
@@ -353,6 +364,13 @@ void loop()
 delay(2000);
   drawJpeg("/Via2.jpg", 0 , 0);     // 240 x 320 image
 delay(2000);
+  drawJpeg("/AOandDAPI2.jpg", 0 , 0);     // 240 x 320 image
+delay(2000);
+  drawJpeg("/Nuclei.jpg", 0 , 0);     // 240 x 320 image
+delay(2000);
+  drawJpeg("/Nucleocolor.jpg", 0 , 0);     // 240 x 320 image
+delay(2000);
+
   //createArray("/tiger.jpg");
   //delay(2000);
   //while(1) yield(); // Stay here
