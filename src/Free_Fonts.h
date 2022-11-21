@@ -83,6 +83,7 @@
 #define FSS12 &FreeSans12pt7b
 #define FSS18 &FreeSans18pt7b
 #define FSS24 &FreeSans24pt7b
+#define ORB50 &Orbitron_50_Bold
 
 #define FSSB9 &FreeSansBold9pt7b
 #define FSSB12 &FreeSansBold12pt7b
@@ -338,6 +339,7 @@
 #define FSS12 1
 #define FSS18 1
 #define FSS24 1
+#define ORB50 1
 
 #define FSSB9  1
 #define FSSB12 1

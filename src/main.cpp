@@ -347,32 +347,92 @@ void loop()
   // the root directory of the SPIFFS, e.g. "/tiger.jpg" for a file called "tiger.jpg"
 
   tft.setRotation(3);  // portrait
-  tft.fillScreen(TFT_WHITE);
-
-    // Set text colour to orange with black background
-  tft.setTextColor(TFT_WHITE, TFT_BLACK);
-  
   tft.fillScreen(TFT_BLACK);            // Clear screen
-  tft.setFreeFont(&Orbitron_Bold_45);                 // Select the font
-  tft.drawString("Hejsa", 20, 50, 1);// Print the string name of the font
-//display.setCursor(20, 50);
-delay(2000);
+  // Set text colour to orange with black background
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setFreeFont(&Orbitron_Bold_40);                 // Select the font or 45
+
+  drawJpeg("/ChemoLogo.jpg", 0 , 0);     // 240 x 320 image
+  delay(5000);
+
+  drawJpeg("/Via2.jpg", 0 , 0);     // 240 x 320 image
+  delay(5000);
+
+tft.fillScreen(TFT_BLACK);            // Clear screen
+tft.drawString("Loading", 20, 25, 1);
+tft.drawString("the sample", 20, 75, 1);
+tft.drawString("into the", 20, 125, 1);
+tft.drawString("cassette", 20, 175, 1);
+delay(5000);
+
+tft.fillScreen(TFT_BLACK);            // Clear screen
+tft.drawString("The sample", 20, 25, 1);
+tft.drawString("is mixed", 20, 75, 1);
+tft.drawString("with pre-", 20, 125, 1);
+tft.drawString("loaded dye", 20, 175, 1);
+delay(5000);
+
+tft.fillScreen(TFT_BLACK);            // Clear screen
+tft.drawString("Cells will", 20, 25, 1);
+tft.drawString("evenly", 20, 75, 1);
+tft.drawString("be labelled", 20, 125, 1);
+tft.drawString("live or dead", 20, 175, 1);
+delay(5000);
+
+tft.fillScreen(TFT_BLACK);            // Clear screen
+tft.drawString("The sample", 10, 5, 1);
+tft.drawString("will now be", 10, 50, 1);
+tft.drawString("measured in", 10, 95, 1);
+tft.drawString("the count-", 10, 140, 1);
+tft.drawString("chamber", 10, 185, 1);
+delay(5000);
+
+drawJpeg("/Nucleocolor.jpg", 0 , 0);     // 240 x 320 image
+delay(5000);
+
+tft.fillScreen(TFT_BLACK);            // Clear screen
+tft.drawString("The excited", 10, 5, 1);
+tft.drawString("fluorophores", 10, 50, 1);
+tft.drawString("emit colors", 10, 95, 1);
+tft.setTextColor(TFT_RED, TFT_BLACK);
+int16_t bredde = tft.drawString("RED ", 10, 140, 1);
+tft.setTextColor(TFT_WHITE, TFT_BLACK);
+tft.drawString("and", 10+bredde, 140, 1);
+tft.setTextColor(TFT_GREEN, TFT_BLACK);
+tft.drawString("GREEN", 10, 185, 1);
+tft.setTextColor(TFT_WHITE, TFT_BLACK);
+delay(5000);
+
+drawJpeg("/AOandDAPI2.jpg", 0 , 0);     // 240 x 320 image
+delay(5000);
+
+tft.fillScreen(TFT_BLACK);            // Clear screen
+tft.drawString("Live / dead", 0, 5, 1);
+tft.drawString("cells are", 0, 50, 1);
+tft.drawString("automatically", 0, 95, 1);
+tft.drawString("analyzed", 0, 140, 1);
+tft.drawString("and counted", 0, 185, 1);
+delay(5000);
+
+drawJpeg("/Celldetect.jpg", 0 , 0);     // 240 x 320 image
+delay(5000);
+
+tft.fillScreen(TFT_BLACK);            // Clear screen
+tft.drawString("Viability", 20, 5, 1);
+tft.drawString("results are", 20, 50, 1);
+tft.drawString("sent to the", 20, 95, 1);
+tft.drawString("PC and data", 20, 140, 1);
+tft.drawString("is saved", 20, 185, 1);
+delay(5000);
+
   drawJpeg("/DAPI2.jpg", 0 , 0);     // 240 x 320 image
-  //drawJpeg("/Baboon40.jpg", 0, 0); // 320 x 480 image
   delay(2000);
   drawJpeg("/AO2.jpg", 0 , 0);     // 240 x 320 image
-delay(2000);
-  drawJpeg("/Via2.jpg", 0 , 0);     // 240 x 320 image
-delay(2000);
-  drawJpeg("/AOandDAPI2.jpg", 0 , 0);     // 240 x 320 image
-delay(2000);
-  drawJpeg("/Nuclei.jpg", 0 , 0);     // 240 x 320 image
-delay(2000);
-  drawJpeg("/Nucleocolor.jpg", 0 , 0);     // 240 x 320 image
-delay(2000);
+  delay(2000);
 
-  //createArray("/tiger.jpg");
-  //delay(2000);
-  //while(1) yield(); // Stay here
+
+  drawJpeg("/Nuclei.jpg", 0 , 0);     // 240 x 320 image
+  delay(2000);
+
 }
 //====================================================================================
