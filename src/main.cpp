@@ -1,300 +1,360 @@
-#include <Arduino.h>
 
-/*
-  Example animated analogue meters using a ILI9341 TFT LCD screen
+//====================================================================================
+//                                  Libraries
+//====================================================================================
+// Call up the SPIFFS FLASH filing system this is part of the ESP Core
+#define FS_NO_GLOBALS
+#include <FS.h>
 
-  Needs Font 2 (also Font 4 if using large scale label)
+#ifdef ESP32
+  #include "SPIFFS.h" // ESP32 only
+#endif
 
-  Make sure all the display driver and pin connections are correct by
-  editing the User_Setup.h file in the TFT_eSPI library folder.
+// JPEG decoder library
+#include <JPEGDecoder.h>
 
-  #########################################################################
-  ###### DON'T FORGET TO UPDATE THE User_Setup.h FILE IN THE LIBRARY ######
-  #########################################################################
-*/
+#include <TFT_eSPI.h>      // Hardware-specific library
 
-#include <TFT_eSPI.h> // Hardware-specific library
-#include <SPI.h>
+TFT_eSPI tft = TFT_eSPI(); // Invoke custom library
 
-TFT_eSPI tft = TFT_eSPI();       // Invoke custom library
+// Return the minimum of two values a and b
+#define minimum(a,b)     (((a) < (b)) ? (a) : (b))
 
-#define TFT_GREY 0x5AEB
+//====================================================================================
+//   Decode and render the Jpeg image onto the TFT screen
+//====================================================================================
+void jpegRender(int xpos, int ypos) {
 
-#define LOOP_PERIOD 35 // Display updates every 35 ms
+  // retrieve infomration about the image
+  uint16_t  *pImg;
+  int16_t mcu_w = JpegDec.MCUWidth;
+  int16_t mcu_h = JpegDec.MCUHeight;
+  int32_t max_x = JpegDec.width;
+  int32_t max_y = JpegDec.height;
 
-float ltx = 0;    // Saved x coord of bottom of needle
-uint16_t osx = 120, osy = 120; // Saved x & y coords
-uint32_t updateTime = 0;       // time for next update
+  // Jpeg images are draw as a set of image block (tiles) called Minimum Coding Units (MCUs)
+  // Typically these MCUs are 16x16 pixel blocks
+  // Determine the width and height of the right and bottom edge image blocks
+  int32_t min_w = minimum(mcu_w, max_x % mcu_w);
+  int32_t min_h = minimum(mcu_h, max_y % mcu_h);
 
-int old_analog =  -999; // Value last displayed
-int old_digital = -999; // Value last displayed
+  // save the current image block size
+  int32_t win_w = mcu_w;
+  int32_t win_h = mcu_h;
 
-int value[6] = {0, 0, 0, 0, 0, 0};
-int old_value[6] = { -1, -1, -1, -1, -1, -1};
-int d = 0;
+  // record the current time so we can measure how long it takes to draw an image
+  uint32_t drawTime = millis();
 
+  // save the coordinate of the right and bottom edges to assist image cropping
+  // to the screen size
+  max_x += xpos;
+  max_y += ypos;
 
-// #########################################################################
-// Update needle position
-// This function is blocking while needle moves, time depends on ms_delay
-// 10ms minimises needle flicker if text is drawn within needle sweep area
-// Smaller values OK if text not in sweep area, zero for instant movement but
-// does not look realistic... (note: 100 increments for full scale deflection)
-// #########################################################################
-void plotNeedle(int value, byte ms_delay)
-{
-  tft.setTextColor(TFT_BLACK, TFT_WHITE);
-  char buf[8]; dtostrf(value, 4, 0, buf);
-  tft.drawRightString(buf, 40, 119 - 20, 2);
+  // read each MCU block until there are no more
+  while ( JpegDec.readSwappedBytes()) { // Swapped byte order read
 
-  if (value < -10) value = -10; // Limit value to emulate needle end stops
-  if (value > 110) value = 110;
+    // save a pointer to the image block
+    pImg = JpegDec.pImage;
 
-  // Move the needle util new value reached
-  while (!(value == old_analog)) {
-    if (old_analog < value) old_analog++;
-    else old_analog--;
+    // calculate where the image block should be drawn on the screen
+    int mcu_x = JpegDec.MCUx * mcu_w + xpos;  // Calculate coordinates of top left corner of current MCU
+    int mcu_y = JpegDec.MCUy * mcu_h + ypos;
 
-    if (ms_delay == 0) old_analog = value; // Update immediately id delay is 0
+    // check if the image block size needs to be changed for the right edge
+    if (mcu_x + mcu_w <= max_x) win_w = mcu_w;
+    else win_w = min_w;
 
-    float sdeg = map(old_analog, -10, 110, -150, -30); // Map value to angle
-    // Calcualte tip of needle coords
-    float sx = cos(sdeg * 0.0174532925);
-    float sy = sin(sdeg * 0.0174532925);
+    // check if the image block size needs to be changed for the bottom edge
+    if (mcu_y + mcu_h <= max_y) win_h = mcu_h;
+    else win_h = min_h;
 
-    // Calculate x delta of needle start (does not start at pivot point)
-    float tx = tan((sdeg + 90) * 0.0174532925);
-
-    // Erase old needle image
-    tft.drawLine(120 + 20 * ltx - 1, 140 - 20, osx - 1, osy, TFT_WHITE);
-    tft.drawLine(120 + 20 * ltx, 140 - 20, osx, osy, TFT_WHITE);
-    tft.drawLine(120 + 20 * ltx + 1, 140 - 20, osx + 1, osy, TFT_WHITE);
-
-    // Re-plot text under needle
-    tft.setTextColor(TFT_BLACK);
-    tft.drawCentreString("%RH", 120, 70, 4); // // Comment out to avoid font 4
-
-    // Store new needle end coords for next erase
-    ltx = tx;
-    osx = sx * 98 + 120;
-    osy = sy * 98 + 140;
-
-    // Draw the needle in the new postion, magenta makes needle a bit bolder
-    // draws 3 lines to thicken needle
-    tft.drawLine(120 + 20 * ltx - 1, 140 - 20, osx - 1, osy, TFT_RED);
-    tft.drawLine(120 + 20 * ltx, 140 - 20, osx, osy, TFT_MAGENTA);
-    tft.drawLine(120 + 20 * ltx + 1, 140 - 20, osx + 1, osy, TFT_RED);
-
-    // Slow needle down slightly as it approaches new postion
-    if (abs(old_analog - value) < 10) ms_delay += ms_delay / 5;
-
-    // Wait before next update
-    delay(ms_delay);
-  }
-}
-
-// #########################################################################
-//  Draw the analogue meter on the screen
-// #########################################################################
-void analogMeter()
-{
-  // Meter outline
-  tft.fillRect(0, 0, 239, 126, TFT_GREY);
-  tft.fillRect(5, 3, 230, 119, TFT_WHITE);
-
-  tft.setTextColor(TFT_BLACK);  // Text colour
-
-  // Draw ticks every 5 degrees from -50 to +50 degrees (100 deg. FSD swing)
-  for (int i = -50; i < 51; i += 5) {
-    // Long scale tick length
-    int tl = 15;
-
-    // Coodinates of tick to draw
-    float sx = cos((i - 90) * 0.0174532925);
-    float sy = sin((i - 90) * 0.0174532925);
-    uint16_t x0 = sx * (100 + tl) + 120;
-    uint16_t y0 = sy * (100 + tl) + 140;
-    uint16_t x1 = sx * 100 + 120;
-    uint16_t y1 = sy * 100 + 140;
-
-    // Coordinates of next tick for zone fill
-    float sx2 = cos((i + 5 - 90) * 0.0174532925);
-    float sy2 = sin((i + 5 - 90) * 0.0174532925);
-    int x2 = sx2 * (100 + tl) + 120;
-    int y2 = sy2 * (100 + tl) + 140;
-    int x3 = sx2 * 100 + 120;
-    int y3 = sy2 * 100 + 140;
-
-    // Yellow zone limits
-    //if (i >= -50 && i < 0) {
-    //  tft.fillTriangle(x0, y0, x1, y1, x2, y2, TFT_YELLOW);
-    //  tft.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_YELLOW);
-    //}
-
-    // Green zone limits
-    if (i >= 0 && i < 25) {
-      tft.fillTriangle(x0, y0, x1, y1, x2, y2, TFT_GREEN);
-      tft.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_GREEN);
-    }
-
-    // Orange zone limits
-    if (i >= 25 && i < 50) {
-      tft.fillTriangle(x0, y0, x1, y1, x2, y2, TFT_ORANGE);
-      tft.fillTriangle(x1, y1, x2, y2, x3, y3, TFT_ORANGE);
-    }
-
-    // Short scale tick length
-    if (i % 25 != 0) tl = 8;
-
-    // Recalculate coords incase tick lenght changed
-    x0 = sx * (100 + tl) + 120;
-    y0 = sy * (100 + tl) + 140;
-    x1 = sx * 100 + 120;
-    y1 = sy * 100 + 140;
-
-    // Draw tick
-    tft.drawLine(x0, y0, x1, y1, TFT_BLACK);
-
-    // Check if labels should be drawn, with position tweaks
-    if (i % 25 == 0) {
-      // Calculate label positions
-      x0 = sx * (100 + tl + 10) + 120;
-      y0 = sy * (100 + tl + 10) + 140;
-      switch (i / 25) {
-        case -2: tft.drawCentreString("0", x0, y0 - 12, 2); break;
-        case -1: tft.drawCentreString("25", x0, y0 - 9, 2); break;
-        case 0: tft.drawCentreString("50", x0, y0 - 6, 2); break;
-        case 1: tft.drawCentreString("75", x0, y0 - 9, 2); break;
-        case 2: tft.drawCentreString("100", x0, y0 - 12, 2); break;
-      }
-    }
-
-    // Now draw the arc of the scale
-    sx = cos((i + 5 - 90) * 0.0174532925);
-    sy = sin((i + 5 - 90) * 0.0174532925);
-    x0 = sx * 100 + 120;
-    y0 = sy * 100 + 140;
-    // Draw scale arc, don't draw the last part
-    if (i < 50) tft.drawLine(x0, y0, x1, y1, TFT_BLACK);
-  }
-
-  tft.drawString("%RH", 5 + 230 - 40, 119 - 20, 2); // Units at bottom right
-  tft.drawCentreString("%RH", 120, 70, 4); // Comment out to avoid font 4
-  tft.drawRect(5, 3, 230, 119, TFT_BLACK); // Draw bezel line
-
-  plotNeedle(0, 0); // Put meter needle at 0
-}
-
-
-
-// #########################################################################
-//  Draw a linear meter on the screen
-// #########################################################################
-void plotLinear(char *label, int x, int y)
-{
-  int w = 36;
-  tft.drawRect(x, y, w, 155, TFT_GREY);
-  tft.fillRect(x + 2, y + 19, w - 3, 155 - 38, TFT_WHITE);
-  tft.setTextColor(TFT_CYAN, TFT_BLACK);
-  tft.drawCentreString(label, x + w / 2, y + 2, 2);
-
-  for (int i = 0; i < 110; i += 10)
-  {
-    tft.drawFastHLine(x + 20, y + 27 + i, 6, TFT_BLACK);
-  }
-
-  for (int i = 0; i < 110; i += 50)
-  {
-    tft.drawFastHLine(x + 20, y + 27 + i, 9, TFT_BLACK);
-  }
-
-  tft.fillTriangle(x + 3, y + 127, x + 3 + 16, y + 127, x + 3, y + 127 - 5, TFT_RED);
-  tft.fillTriangle(x + 3, y + 127, x + 3 + 16, y + 127, x + 3, y + 127 + 5, TFT_RED);
-
-  tft.drawCentreString("---", x + w / 2, y + 155 - 18, 2);
-}
-
-// #########################################################################
-//  Adjust 6 linear meter pointer positions
-// #########################################################################
-void plotPointer(void)
-{
-  int dy = 187;
-  byte pw = 16;
-
-  tft.setTextColor(TFT_GREEN, TFT_BLACK);
-
-  // Move the 6 pointers one pixel towards new value
-  for (int i = 0; i < 6; i++)
-  {
-    char buf[8]; dtostrf(value[i], 4, 0, buf);
-    tft.drawRightString(buf, i * 40 + 36 - 5, 187 - 27 + 155 - 18, 2);
-
-    int dx = 3 + 40 * i;
-    if (value[i] < 0) value[i] = 0; // Limit value to emulate needle end stops
-    if (value[i] > 100) value[i] = 100;
-
-    while (!(value[i] == old_value[i])) {
-      dy = 187 + 100 - old_value[i];
-      if (old_value[i] > value[i])
+    // copy pixels into a contiguous block
+    if (win_w != mcu_w)
+    {
+      for (int h = 1; h < win_h-1; h++)
       {
-        tft.drawLine(dx, dy - 5, dx + pw, dy, TFT_WHITE);
-        old_value[i]--;
-        tft.drawLine(dx, dy + 6, dx + pw, dy + 1, TFT_RED);
-      }
-      else
-      {
-        tft.drawLine(dx, dy + 5, dx + pw, dy, TFT_WHITE);
-        old_value[i]++;
-        tft.drawLine(dx, dy - 6, dx + pw, dy - 1, TFT_RED);
+        memcpy(pImg + h * win_w, pImg + (h + 1) * mcu_w, win_w << 1);
       }
     }
+
+    // draw image MCU block only if it will fit on the screen
+    if ( mcu_x < tft.width() && mcu_y < tft.height())
+    {
+      // Now push the image block to the screen
+      tft.pushImage(mcu_x, mcu_y, win_w, win_h, pImg);
+    }
+
+    else if ( ( mcu_y + win_h) >= tft.height()) JpegDec.abort();
+
+  }
+
+  // calculate how long it took to draw the image
+  drawTime = millis() - drawTime; // Calculate the time it took
+
+  // print the results to the serial port
+  Serial.print  ("Total render time was    : "); Serial.print(drawTime); Serial.println(" ms");
+  Serial.println("=====================================");
+
+}
+
+//====================================================================================
+//   Print information decoded from the Jpeg image
+//====================================================================================
+void jpegInfo() {
+
+  Serial.println("===============");
+  Serial.println("JPEG image info");
+  Serial.println("===============");
+  Serial.print  ("Width      :"); Serial.println(JpegDec.width);
+  Serial.print  ("Height     :"); Serial.println(JpegDec.height);
+  Serial.print  ("Components :"); Serial.println(JpegDec.comps);
+  Serial.print  ("MCU / row  :"); Serial.println(JpegDec.MCUSPerRow);
+  Serial.print  ("MCU / col  :"); Serial.println(JpegDec.MCUSPerCol);
+  Serial.print  ("Scan type  :"); Serial.println(JpegDec.scanType);
+  Serial.print  ("MCU width  :"); Serial.println(JpegDec.MCUWidth);
+  Serial.print  ("MCU height :"); Serial.println(JpegDec.MCUHeight);
+  Serial.println("===============");
+  Serial.println("");
+}
+
+
+/*====================================================================================
+  This sketch contains support functions to render the Jpeg images.
+  Created by Bodmer 15th Jan 2017
+  Updated by Bodmer to support ESP32 with SPIFFS Jan 2018
+  ==================================================================================*/
+
+
+//====================================================================================
+//   Opens the image file and prime the Jpeg decoder
+//====================================================================================
+void drawJpeg(const char *filename, int xpos, int ypos) {
+
+  Serial.println("===========================");
+  Serial.print("Drawing file: "); Serial.println(filename);
+  Serial.println("===========================");
+
+  // Open the named file (the Jpeg decoder library will close it after rendering image)
+  fs::File jpegFile = SPIFFS.open( filename, "r");    // File handle reference for SPIFFS
+  //  File jpegFile = SD.open( filename, FILE_READ);  // or, file handle reference for SD library
+
+  //ESP32 always seems to return 1 for jpegFile so this null trap does not work
+  if ( !jpegFile ) {
+    Serial.print("ERROR: File \""); Serial.print(filename); Serial.println ("\" not found!");
+    return;
+  }
+
+  // Use one of the three following methods to initialise the decoder,
+  // the filename can be a String or character array type:
+
+  //boolean decoded = JpegDec.decodeFsFile(jpegFile); // Pass a SPIFFS file handle to the decoder,
+  //boolean decoded = JpegDec.decodeSdFile(jpegFile); // or pass the SD file handle to the decoder,
+  boolean decoded = JpegDec.decodeFsFile(filename);  // or pass the filename (leading / distinguishes SPIFFS files)
+
+  if (decoded) {
+    // print information about the image to the serial port
+    jpegInfo();
+
+    // render the image onto the screen at given coordinates
+    jpegRender(xpos, ypos);
+  }
+  else {
+    Serial.println("Jpeg file format not supported!");
   }
 }
 
-void setup(void) {
-  tft.init();
-  tft.setRotation(0);
-  Serial.begin(57600); // For debug
+//====================================================================================
+//   Open a Jpeg file and send it to the Serial port in a C array compatible format
+//====================================================================================
+void createArray(const char *filename) {
+
+  // Open the named file
+  fs::File jpgFile = SPIFFS.open( filename, "r");    // File handle reference for SPIFFS
+  //  File jpgFile = SD.open( filename, FILE_READ);  // or, file handle reference for SD library
+
+  if ( !jpgFile ) {
+    Serial.print("ERROR: File \""); Serial.print(filename); Serial.println ("\" not found!");
+    return;
+  }
+
+  uint8_t data;
+  byte line_len = 0;
+  Serial.println("");
+  Serial.println("// Generated by a JPEGDecoder library example sketch:");
+  Serial.println("// https://github.com/Bodmer/JPEGDecoder");
+  Serial.println("");
+  Serial.println("#if defined(__AVR__)");
+  Serial.println("  #include <avr/pgmspace.h>");
+  Serial.println("#endif");
+  Serial.println("");
+  Serial.print  ("const uint8_t ");
+  while (*filename != '.') Serial.print(*filename++);
+  Serial.println("[] PROGMEM = {"); // PROGMEM added for AVR processors, it is ignored by Due
+
+  while ( jpgFile.available()) {
+
+    data = jpgFile.read();
+    Serial.print("0x"); if (abs(data) < 16) Serial.print("0");
+    Serial.print(data, HEX); Serial.print(",");// Add value and comma
+    line_len++;
+    if ( line_len >= 32) {
+      line_len = 0;
+      Serial.println();
+    }
+
+  }
+
+  Serial.println("};\r\n");
+  jpgFile.close();
+}
+//====================================================================================
+
+/*====================================================================================
+  This sketch contains support functions for the ESP6266 SPIFFS filing system
+  Created by Bodmer 15th Jan 2017
+  Updated by Bodmer to support ESP32 with SPIFFS Jan 2018
+  ==================================================================================*/
+
+//====================================================================================
+//                 Print a SPIFFS directory list (root directory)
+//====================================================================================
+#ifdef ESP8266
+void listFiles(void) {
+  Serial.println();
+  Serial.println("SPIFFS files found:");
+
+  fs::Dir dir = SPIFFS.openDir("/"); // Root directory
+  String  line = "=====================================";
+
+  Serial.println(line);
+  Serial.println("  File name               Size");
+  Serial.println(line);
+
+  while (dir.next()) {
+    String fileName = dir.fileName();
+    Serial.print(fileName);
+    int spaces = 21 - fileName.length(); // Tabulate nicely
+    while (spaces--) Serial.print(" ");
+
+    fs::File f = dir.openFile("r");
+    String fileSize = (String) f.size();
+    spaces = 10 - fileSize.length(); // Tabulate nicely
+    while (spaces--) Serial.print(" ");
+    Serial.println(fileSize + " bytes");
+  }
+
+  Serial.println(line);
+  Serial.println();
+  delay(1000);
+}
+#endif
+
+//====================================================================================
+
+#ifdef ESP32
+
+
+
+void listDir(fs::FS &fs, const char * dirname, uint8_t levels) {
+
+  Serial.println();
+  Serial.println("SPIFFS files found:");
+
+  Serial.printf("Listing directory: %s\n", "/");
+  String  line = "=====================================";
+
+  Serial.println(line);
+  Serial.println("  File name               Size");
+  Serial.println(line);
+
+  fs::File root = fs.open(dirname);
+  if (!root) {
+    Serial.println("Failed to open directory");
+    return;
+  }
+  if (!root.isDirectory()) {
+    Serial.println("Not a directory");
+    return;
+  }
+
+  fs::File file = root.openNextFile();
+  while (file) {
+
+    if (file.isDirectory()) {
+      Serial.print("DIR : ");
+      String fileName = file.name();
+      Serial.print(fileName);
+      if (levels) {
+        listDir(fs, file.name(), levels - 1);
+      }
+    } else {
+      String fileName = file.name();
+      Serial.print("  " + fileName);
+      int spaces = 20 - fileName.length(); // Tabulate nicely
+      while (spaces--) Serial.print(" ");
+      String fileSize = (String) file.size();
+      spaces = 10 - fileSize.length(); // Tabulate nicely
+      while (spaces--) Serial.print(" ");
+      Serial.println(fileSize + " bytes");
+    }
+
+    file = root.openNextFile();
+  }
+
+  Serial.println(line);
+  Serial.println();
+  delay(1000);
+}
+
+void listFiles(void) {
+  listDir(SPIFFS, "/", 0);
+}
+#endif
+
+
+//====================================================================================
+//                                    Setup
+//====================================================================================
+void setup()
+{
+  Serial.begin(115200); // Used for messages and the C array generator
+
+  delay(10);
+  Serial.println("NodeMCU decoder test!");
+
+  tft.begin();
+  tft.setRotation(0);  // 0 & 2 Portrait. 1 & 3 landscape
   tft.fillScreen(TFT_BLACK);
 
-  analogMeter(); // Draw analogue meter
-
-  // Draw 6 linear meters
-  byte d = 40;
-  plotLinear("A0", 0, 160);
-  plotLinear("A1", 1 * d, 160);
-  plotLinear("A2", 2 * d, 160);
-  plotLinear("A3", 3 * d, 160);
-  plotLinear("A4", 4 * d, 160);
-  plotLinear("A5", 5 * d, 160);
-
-  updateTime = millis(); // Next update time
-}
-
-
-void loop() {
-  if (updateTime <= millis()) {
-    updateTime = millis() + LOOP_PERIOD;
-
-    d += 4; if (d >= 360) d = 0;
-
-    //value[0] = map(analogRead(A0), 0, 1023, 0, 100); // Test with value form Analogue 0
-
-    // Create a Sine wave for testing
-    value[0] = 50 + 50 * sin((d + 0) * 0.0174532925);
-    value[1] = 50 + 50 * sin((d + 60) * 0.0174532925);
-    value[2] = 50 + 50 * sin((d + 120) * 0.0174532925);
-    value[3] = 50 + 50 * sin((d + 180) * 0.0174532925);
-    value[4] = 50 + 50 * sin((d + 240) * 0.0174532925);
-    value[5] = 50 + 50 * sin((d + 300) * 0.0174532925);
-
-    //unsigned long t = millis();
-
-    plotPointer();
-
-    plotNeedle(value[0], 0);
-
-    //Serial.println(millis()-t); // Print time taken for meter update
+  if (!SPIFFS.begin()) {
+    Serial.println("SPIFFS initialisation failed!");
+    while (1) yield(); // Stay here twiddling thumbs waiting
   }
+  Serial.println("\r\nInitialisation done.");
+  listFiles(); // Lists the files so you can see what is in the SPIFFS
+
 }
+
+//====================================================================================
+//                                    Loop
+//====================================================================================
+void loop()
+{
+  // Note the / before the SPIFFS file name must be present, this means the file is in
+  // the root directory of the SPIFFS, e.g. "/tiger.jpg" for a file called "tiger.jpg"
+
+  tft.setRotation(3);  // portrait
+  tft.fillScreen(TFT_WHITE);
+
+  drawJpeg("/DAPI2.jpg", 0 , 0);     // 240 x 320 image
+  //drawJpeg("/Baboon40.jpg", 0, 0); // 320 x 480 image
+  delay(2000);
+  drawJpeg("/AO2.jpg", 0 , 0);     // 240 x 320 image
+delay(2000);
+  drawJpeg("/Via2.jpg", 0 , 0);     // 240 x 320 image
+delay(2000);
+  //createArray("/tiger.jpg");
+  //delay(2000);
+  //while(1) yield(); // Stay here
+}
+//====================================================================================
