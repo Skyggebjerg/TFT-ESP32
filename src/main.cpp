@@ -23,6 +23,14 @@ TFT_eSPI tft = TFT_eSPI(); // Invoke custom library
 // Return the minimum of two values a and b
 #define minimum(a,b)     (((a) < (b)) ? (a) : (b))
 
+//int LITE = 32; // output controlling the background light on the display
+
+#define LED_GPIO   32
+#define PWM1_Ch    0
+#define PWM1_Res   8
+#define PWM1_Freq  1000
+int PWM1_DutyCycle = 0;
+
 //====================================================================================
 //   Decode and render the Jpeg image onto the TFT screen
 //====================================================================================
@@ -320,6 +328,12 @@ void listFiles(void) {
 //====================================================================================
 void setup()
 {
+  //pinMode(LITE, OUTPUT);
+  //digitalWrite(LITE, HIGH); //Turn ON background light
+  ledcAttachPin(LED_GPIO, PWM1_Ch);
+  ledcSetup(PWM1_Ch, PWM1_Freq, PWM1_Res);
+  ledcWrite(PWM1_Ch, 255);
+
   Serial.begin(115200); // Used for messages and the C array generator
 
   delay(10);
@@ -352,8 +366,13 @@ void loop()
   tft.setTextColor(TFT_WHITE, TFT_BLACK);
   tft.setFreeFont(&Orbitron_Bold_40);                 // Select the font or 45
 
+  ledcWrite(PWM1_Ch, 0);
   drawJpeg("/ChemoLogo.jpg", 0 , 0);     // 240 x 320 image
-  delay(5000);
+  for (int i = 0; i <= 255; i++) {
+    ledcWrite(PWM1_Ch, i);
+    delay(10);
+  }
+  //delay(5000);
 
   drawJpeg("/Via2.jpg", 0 , 0);     // 240 x 320 image
   delay(5000);
@@ -374,10 +393,10 @@ tft.drawString("mixing", 0, 185, 1);
 delay(5000);
 
 tft.fillScreen(TFT_BLACK);            // Clear screen
-tft.drawString("Cells will", 10, 10, 1);
-tft.drawString("quickly", 10, 60, 1);
-tft.drawString("be stained", 10, 110, 1);
-tft.drawString("live or dead", 10, 160, 1);
+tft.drawString("Live or dead", 10, 10, 1);
+tft.drawString("cells will", 10, 60, 1);
+tft.drawString("quickly", 10, 110, 1);
+tft.drawString("be stained", 10, 160, 1); 
 delay(5000);
 
 tft.fillScreen(TFT_BLACK);            // Clear screen
@@ -388,8 +407,43 @@ tft.drawString("counting", 10, 140, 1);
 tft.drawString("chamber", 10, 185, 1);
 delay(5000);
 
+ledcWrite(PWM1_Ch, 0); //Turn OFF background light
+
+tft.fillScreen(TFT_BLUE);
+delay(100);
+ledcWrite(PWM1_Ch, 255); //Turn ON background light
+delay(100);
+ledcWrite(PWM1_Ch, 0); //Turn OFF background light
+delay(100);
+ledcWrite(PWM1_Ch, 255); //Turn ON background light
+delay(100);
+ledcWrite(PWM1_Ch, 0); //Turn OFF background light
+
+tft.fillScreen(TFT_GREEN);
+delay(100);
+ledcWrite(PWM1_Ch, 255); //Turn ON background light
+delay(100);
+ledcWrite(PWM1_Ch, 0); //Turn OFF background light
+delay(100);
+ledcWrite(PWM1_Ch, 255); //Turn ON background light
+delay(100);
+ledcWrite(PWM1_Ch, 0); //Turn OFF background light
+
+//tft.fillScreen(TFT_BLACK); */
+
+//ledcWrite(PWM1_Ch, 0);
 drawJpeg("/Nucleocolor.jpg", 0 , 0);     // 240 x 320 image
-delay(5000);
+delay(50);
+  for (int i = 0; i <= 255; i++) {
+    ledcWrite(PWM1_Ch, i);
+    delay(20);
+  }
+
+
+
+//digitalWrite(LITE, HIGH); //Turn ON background light
+
+delay(1000);
 
 tft.fillScreen(TFT_BLACK);            // Clear screen
 tft.drawString("The excited", 10, 5, 1);
@@ -426,11 +480,20 @@ tft.drawString("PC and data", 20, 140, 1);
 tft.drawString("is saved", 20, 185, 1);
 delay(5000);
 
+  ledcWrite(PWM1_Ch, 0);
   drawJpeg("/DAPI2.jpg", 0 , 0);     // 240 x 320 image
-  delay(5000);
+  for (int i = 0; i <= 255; i++) {
+    ledcWrite(PWM1_Ch, i);
+    delay(20);
+}
+  //drawJpeg("/DAPI2.jpg", 0 , 0);     // 240 x 320 image
+  //delay(5000);
   drawJpeg("/AO2.jpg", 0 , 0);     // 240 x 320 image
-  delay(5000);
-
+  delay(3000);
+  for (int i = 255; i >= 0; i--) {
+    ledcWrite(PWM1_Ch, i);
+    delay(10);
+  }
 
   //drawJpeg("/Nuclei.jpg", 0 , 0);     // 240 x 320 image
   //delay(2000);
